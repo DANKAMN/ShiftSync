@@ -1,9 +1,8 @@
 "use server"
 
-import { PrismaClient, ShiftStatus } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
+import { ShiftStatus } from "@prisma/client"
 import { checkConflicts, validateSkill, calculateOvertime } from "@/lib/logic/scheduler"
-
-const prisma = new PrismaClient()
 
 interface CreateShiftInput {
   locationId: string

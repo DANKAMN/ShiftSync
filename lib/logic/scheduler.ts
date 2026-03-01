@@ -1,7 +1,7 @@
-import { PrismaClient } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
 import { addHours, differenceInHours, startOfWeek, endOfWeek } from "date-fns"
 import { toZonedTime, fromZonedTime } from "date-fns-tz"
-const prisma = new PrismaClient()
+
 
 /**
  * STANDARD ENGINE RESPONSE SHAPE

@@ -1,9 +1,8 @@
 "use server"
 
-import { PrismaClient, ShiftStatus } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
+import { ShiftStatus } from "@prisma/client"
 import { differenceInHours } from "date-fns"
-
-const prisma = new PrismaClient()
 
 export async function publishShift(shiftId: string) {
   const shift = await prisma.shift.findUnique({
