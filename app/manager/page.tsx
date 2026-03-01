@@ -1,31 +1,32 @@
-import { PrismaClient } from "@prisma/client"
-import { checkConflicts } from "@/lib/logic/scheduler"
-
-const prisma = new PrismaClient()
+import { connectDB } from "@/lib/mongodb"
+import Shift from "@/models/Shift"
+import Location from "@/models/Location" 
+import User from "@/models/User"
 
 export default async function ManagerDashboard() {
-  const shifts = await prisma.shift.findMany({
-    include: {
-      assignments: {
-        include: { user: true },
-      },
-      location: true,
-    },
-    orderBy: { start: "asc" },
-  })
+  await connectDB()
 
+  const shifts = await Shift.find()
+    .populate("location")
+    .populate("assignments.user")
+    .sort({ start: 1 })
+    .lean()
+
+    console.log(shifts)
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Manager Calendar</h1>
+      <h1 className="text-2xl font-bold mb-6">
+        Manager Calendar
+      </h1>
 
       <div className="grid grid-cols-7 gap-4">
-        {shifts.map((shift) => (
+        {shifts.map((shift: any) => (
           <div
-            key={shift.id}
+            key={shift._id.toString()}
             className={`border rounded p-3 ${
               shift.status === "DRAFT"
-                ? "bg-yellow-100"
-                : "bg-green-100"
+                ? "bg-yellow-500"
+                : "bg-green-500"
             }`}
           >
             <div className="font-semibold">
@@ -33,7 +34,7 @@ export default async function ManagerDashboard() {
             </div>
 
             <div className="text-sm">
-              {shift.location.name}
+              {shift.location?.name || "Unknown Location"}
             </div>
 
             <div className="text-xs">
@@ -42,7 +43,8 @@ export default async function ManagerDashboard() {
             </div>
 
             <div className="mt-2 text-xs">
-              {shift.assignments.length} / {shift.headcount} Assigned
+              {shift.assignments?.length || 0} /{" "}
+              {shift.headcount} Assigned
             </div>
           </div>
         ))}

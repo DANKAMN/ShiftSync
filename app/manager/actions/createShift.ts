@@ -1,8 +1,9 @@
 "use server"
 
-import { prisma } from "@/lib/prisma"
-import { ShiftStatus } from "@prisma/client"
-import { checkConflicts, validateSkill, calculateOvertime } from "@/lib/logic/scheduler"
+import { connectDB } from "@/lib/mongodb"
+import Shift from "@/models/Shift"
+import User from "@/models/User"
+import { checkConflicts, calculateOvertime } from "@/lib/logic/scheduler"
 
 interface CreateShiftInput {
   locationId: string
@@ -12,10 +13,11 @@ interface CreateShiftInput {
   requiredSkillId?: string
   headcount: number
   assignedStaffIds?: string[]
-  createdById: string
 }
 
 export async function createShift(data: CreateShiftInput) {
+  await connectDB()
+
   const {
     locationId,
     title,
@@ -24,43 +26,49 @@ export async function createShift(data: CreateShiftInput) {
     requiredSkillId,
     headcount,
     assignedStaffIds = [],
-    createdById,
   } = data
 
   if (end <= start) {
     return { ok: false, error: "Shift end must be after start." }
   }
 
-  // Create shift first (DRAFT)
-  const shift = await prisma.shift.create({
-    data: {
-      locationId,
-      title,
-      start,
-      end,
-      requiredSkillId,
-      headcount,
-      createdById,
-      status: ShiftStatus.DRAFT,
-    },
+  // Create shift (DRAFT)
+  const shift = await Shift.create({
+    location: locationId,
+    title,
+    start,
+    end,
+    requiredSkill: requiredSkillId,
+    headcount,
+    status: "DRAFT",
+    assignments: [],
   })
 
-  // Assign staff with engine validations
+  // Validate & assign staff
   for (const staffId of assignedStaffIds) {
-    const skillCheck = await validateSkill(staffId, shift.id)
-    if (!skillCheck.ok) {
-      return skillCheck
+    // 1. Skill validation (simple inline check)
+    if (requiredSkillId) {
+      const user = await User.findById(staffId)
+      if (!user?.skills?.includes(requiredSkillId as any)) {
+        return {
+          ok: false,
+          error: "Staff lacks required skill.",
+        }
+      }
     }
 
+    // 2. Conflict check
     const conflictCheck = await checkConflicts(
       staffId,
       start,
       end
     )
+
     if (!conflictCheck.ok) {
       return conflictCheck
     }
 
+    // 3. Overtime check
     const overtime = await calculateOvertime(staffId, start)
     if (overtime.hardBlock) {
       return {
@@ -69,13 +77,14 @@ export async function createShift(data: CreateShiftInput) {
       }
     }
 
-    await prisma.shiftAssignment.create({
-      data: {
-        shiftId: shift.id,
-        userId: staffId,
-      },
+    // Push assignment
+    shift.assignments.push({
+      user: staffId,
+      status: "ASSIGNED",
     })
   }
 
-  return { ok: true, shiftId: shift.id }
+  await shift.save()
+
+  return { ok: true, shiftId: shift._id.toString() }
 }

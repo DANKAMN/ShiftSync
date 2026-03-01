@@ -1,13 +1,13 @@
 "use server"
 
-import { prisma } from "@/lib/prisma"
-import { ShiftStatus } from "@prisma/client"
+import { connectDB } from "@/lib/mongodb"
+import Shift from "@/models/Shift"
 import { differenceInHours } from "date-fns"
 
 export async function publishShift(shiftId: string) {
-  const shift = await prisma.shift.findUnique({
-    where: { id: shiftId },
-  })
+  await connectDB()
+
+  const shift = await Shift.findById(shiftId)
 
   if (!shift) {
     return { ok: false, error: "Shift not found." }
@@ -21,17 +21,12 @@ export async function publishShift(shiftId: string) {
   if (hoursUntilStart < 48) {
     return {
       ok: false,
-      error: "Cannot publish or edit shift within 48 hours of start.",
+      error: "Cannot publish within 48 hours of start.",
     }
   }
 
-  await prisma.shift.update({
-    where: { id: shiftId },
-    data: {
-      status: ShiftStatus.PUBLISHED,
-      publishedAt: new Date(),
-    },
-  })
+  shift.status = "PUBLISHED"
+  await shift.save()
 
   return { ok: true }
 }
