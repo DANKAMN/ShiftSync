@@ -1,0 +1,220 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  STAFF
+}
+
+enum ShiftStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+}
+
+enum SwapStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+enum AssignmentStatus {
+  ASSIGNED
+  CONFIRMED
+  CHECKED_IN
+  CANCELLED
+}
+
+model User {
+  id    String  @id @map("_id") @db.ObjectId
+  email String  @unique
+  name  String?
+  role  Role    @default(STAFF)
+
+  certifications Certification[]
+  skills         UserSkill[]
+  availabilities Availability[]
+  assignments    ShiftAssignment[]
+
+  swapRequests SwapRequest[] @relation("Requester")
+  swapTargets  SwapRequest[] @relation("Target")
+
+  notifications Notification[]
+  auditLogs     AuditLog[]     @relation("actorLogs")
+
+  createdShifts Shift[] @relation("CreatedShifts")
+
+  managedLocations LocationManager[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+}
+
+model Skill {
+  id     String      @id @map("_id") @db.ObjectId
+  name   String      @unique
+  users  UserSkill[]
+  shifts Shift[]
+}
+
+model UserSkill {
+  id      String @id @map("_id") @db.ObjectId
+  user    User   @relation(fields: [userId], references: [id])
+  userId  String @db.ObjectId
+  skill   Skill  @relation(fields: [skillId], references: [id])
+  skillId String @db.ObjectId
+}
+
+model Location {
+  id       String  @id @map("_id") @db.ObjectId
+  name     String
+  address  String?
+  timezone String
+
+  managers       LocationManager[]
+  shifts         Shift[]
+  certifications Certification[]
+  auditLogs      AuditLog[]
+
+  createdAt DateTime @default(now())
+}
+
+model LocationManager {
+  id         String   @id @map("_id") @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String   @db.ObjectId
+  location   Location @relation(fields: [locationId], references: [id])
+  locationId String   @db.ObjectId
+}
+
+model Shift {
+  id         String   @id @map("_id") @db.ObjectId
+  location   Location @relation(fields: [locationId], references: [id])
+  locationId String   @db.ObjectId
+
+  title String?
+  start DateTime
+  end   DateTime
+
+  requiredSkill   Skill?  @relation(fields: [requiredSkillId], references: [id])
+  requiredSkillId String? @db.ObjectId
+
+  headcount   Int         @default(1)
+  status      ShiftStatus @default(DRAFT)
+  publishedAt DateTime?
+
+  createdBy   User?   @relation("CreatedShifts", fields: [createdById], references: [id])
+  createdById String? @db.ObjectId
+
+  assignments  ShiftAssignment[]
+  swapRequests SwapRequest[]
+  auditLogs    AuditLog[]        @relation("shiftLogs")
+
+  meta      Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+
+  @@index([locationId, start])
+}
+
+model ShiftAssignment {
+  id      String @id @map("_id") @db.ObjectId
+  shift   Shift  @relation(fields: [shiftId], references: [id])
+  shiftId String @db.ObjectId
+  user    User   @relation(fields: [userId], references: [id])
+  userId  String @db.ObjectId
+
+  status      AssignmentStatus @default(ASSIGNED)
+  assignedAt  DateTime         @default(now())
+  confirmedAt DateTime?
+  checkedInAt DateTime?
+  notes       String?
+}
+
+model Availability {
+  id     String @id @map("_id") @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @db.ObjectId
+
+  recurring Boolean @default(false)
+  weekday   Int?
+  startTime String?
+  endTime   String?
+
+  start    DateTime?
+  end      DateTime?
+  timezone String?
+  note     String?
+
+  createdAt DateTime @default(now())
+}
+
+model Certification {
+  id         String   @id @map("_id") @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String   @db.ObjectId
+  location   Location @relation(fields: [locationId], references: [id])
+  locationId String   @db.ObjectId
+
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model SwapRequest {
+  id      String @id @map("_id") @db.ObjectId
+  shift   Shift  @relation(fields: [shiftId], references: [id])
+  shiftId String @db.ObjectId
+
+  requester   User   @relation("Requester", fields: [requesterId], references: [id])
+  requesterId String @db.ObjectId
+
+  targetUser   User?   @relation("Target", fields: [targetUserId], references: [id])
+  targetUserId String? @db.ObjectId
+
+  type   String?
+  status SwapStatus @default(PENDING)
+
+  createdAt       DateTime  @default(now())
+  expiresAt       DateTime?
+  managerApproved Boolean   @default(false)
+  notes           String?
+}
+
+model AuditLog {
+  id      String  @id @map("_id") @db.ObjectId
+  actor   User?   @relation("actorLogs", fields: [actorId], references: [id])
+  actorId String? @db.ObjectId
+
+  action      String
+  beforeState Json?
+  afterState  Json?
+
+  shift   Shift?  @relation("shiftLogs", fields: [shiftId], references: [id])
+  shiftId String? @db.ObjectId
+
+  location   Location? @relation(fields: [locationId], references: [id])
+  locationId String?   @db.ObjectId
+
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id     String @id @map("_id") @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @db.ObjectId
+
+  title String
+  body  String?
+  data  Json?
+  read  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+}
