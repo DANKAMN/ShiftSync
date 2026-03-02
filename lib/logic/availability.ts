@@ -1,58 +1,56 @@
-import { format } from "date-fns"
+// lib/logic/availability.ts
 import Availability from "@/models/Availability"
+import { format } from "date-fns"
 
+/**
+ * checkAvailability(userId, shiftStart, shiftEnd)
+ * - returns { ok:true } or { ok:false, error }
+ */
 export async function checkAvailability(
-  staffId: string,
-  start: Date,
-  end: Date
-) {
-  const dayOfWeek = start.getDay()
-  const dateStr = format(start, "yyyy-MM-dd")
+  userId: string,
+  shiftStart: Date,
+  shiftEnd: Date
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  // check EXCEPTION for that date first
+  const dateKey = format(shiftStart, "yyyy-MM-dd")
+  const dayStart = new Date(`${dateKey}T00:00:00.000Z`)
+  const dayEnd = new Date(`${dateKey}T23:59:59.999Z`)
 
-  // 1️⃣ Check for specific exception
   const exception = await Availability.findOne({
-    user: staffId,
+    user: userId,
     type: "EXCEPTION",
-    date: {
-      $gte: new Date(dateStr),
-      $lte: new Date(dateStr + "T23:59:59"),
-    },
-  })
+    date: { $gte: dayStart, $lte: dayEnd },
+  }).lean()
 
   if (exception) {
     if (!exception.isAvailable) {
-      return {
-        ok: false,
-        error: "Staff marked unavailable for this date.",
-      }
+      return { ok: false, error: "Staff marked unavailable for this date (exception)." }
     }
+    // if exception exists and isAvailable=true -> allow
+    return { ok: true }
   }
 
-  // 2️⃣ Check weekly recurring
+  // Weekly availability
+  const dow = shiftStart.getDay() // 0..6
   const weekly = await Availability.findOne({
-    user: staffId,
+    user: userId,
     type: "WEEKLY",
-    dayOfWeek,
-  })
+    dayOfWeek: dow,
+  }).lean()
 
   if (!weekly) {
-    return {
-      ok: false,
-      error: "No availability set for this weekday.",
-    }
+    return { ok: false, error: "No weekly availability set for this weekday." }
   }
 
-  const shiftStart = format(start, "HH:mm")
-  const shiftEnd = format(end, "HH:mm")
+  const shiftStartHM = format(shiftStart, "HH:mm")
+  const shiftEndHM = format(shiftEnd, "HH:mm")
 
-  if (
-    shiftStart < weekly.startTime ||
-    shiftEnd > weekly.endTime
-  ) {
-    return {
-      ok: false,
-      error: "Shift outside of staff availability window.",
-    }
+  if (!weekly.startTime || !weekly.endTime) {
+    return { ok: false, error: "Staff weekly availability is not properly configured." }
+  }
+
+  if (shiftStartHM < weekly.startTime || shiftEndHM > weekly.endTime) {
+    return { ok: false, error: "Shift falls outside staff's availability window." }
   }
 
   return { ok: true }
