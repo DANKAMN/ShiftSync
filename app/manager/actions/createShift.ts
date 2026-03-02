@@ -46,14 +46,19 @@ export async function createShift(data: CreateShiftInput) {
 
   // Validate & assign staff
   for (const staffId of assignedStaffIds) {
+    // Fetch user once to check skills AND certifications
+    const user = await User.findById(staffId)
+
     // 1. Skill validation (simple inline check)
-    if (requiredSkillId) {
-      const user = await User.findById(staffId)
-      if (!user?.skills?.includes(requiredSkillId as any)) {
-        return {
-          ok: false,
-          error: "Staff lacks required skill.",
-        }
+    if (requiredSkillId && !user?.skills?.includes(requiredSkillId as unknown)) {
+      return { ok: false, error: "Staff lacks required skill." }
+    }
+
+    // Certification validation
+    if (!user?.certifications?.includes(locationId as unknown)) {
+      return {
+        ok: false,
+        error: "Staff not certified for this location.",
       }
     }
 
