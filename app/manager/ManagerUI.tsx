@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { createShift } from "./actions/createShift"
 import { publishShift } from "./actions/publishShift"
+import { signOut } from "next-auth/react"
 
 export default function ManagerUI({
   initialShifts,
@@ -66,7 +67,16 @@ export default function ManagerUI({
 
   return (
     <div className="p-6 space-y-10">
-      <h1 className="text-2xl font-bold">Manager Dashboard</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Manager Dashboard</h1>
+
+        <button
+          onClick={() => signOut({ callbackUrl: "/auth/login" })}
+          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-bold"
+        >
+          Sign Out
+        </button>
+      </div>
 
       {/* CREATE SHIFT FORM */}
       <div className="border p-4 rounded space-y-3 bg-purple-400 shadow-sm">
@@ -198,8 +208,23 @@ export default function ManagerUI({
               {new Date(shift.start).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
             </div>
 
-            <div className="text-sm mt-1 mb-3">
-              Staff: <span className="font-bold">{shift.assignments?.length}</span> / {shift.headcount}
+            <div className="text-sm mt-2 mb-3">
+              <div>
+                Staff: <span className="font-bold">{shift.assignments?.length}</span> / {shift.headcount}
+              </div>
+
+              {shift.assignments?.length > 0 && (
+                <div className="mt-2 text-xs bg-white/40 p-2 rounded">
+                  <div className="font-semibold mb-1">Assigned:</div>
+                  <ul className="space-y-1">
+                    {shift.assignments.map((a: any) => (
+                      <li key={a._id}>
+                        • {a.user?.name || "Unknown Staff"}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             {shift.status === "DRAFT" && (
