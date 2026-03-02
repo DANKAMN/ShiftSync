@@ -1,31 +1,3 @@
-// import { connectDB } from "@/lib/mongodb"
-// import Shift from "@/models/Shift"
-// import Location from "@/models/Location"
-// import User from "@/models/User"
-// import ManagerUI from "./ManagerUI"
-
-// export default async function ManagerDashboard() {
-//   await connectDB()
-
-//   const shifts = await Shift.find()
-//     .populate("location")
-//     .populate("assignments.user")
-//     .sort({ start: 1 })
-//     .lean()
-
-//   const locations = await Location.find().lean()
-//   const staff = await User.find({ role: "STAFF" }).lean()
-
-//   return (
-//     <ManagerUI
-//       initialShifts={JSON.parse(JSON.stringify(shifts))}
-//       locations={JSON.parse(JSON.stringify(locations))}
-//       staff={JSON.parse(JSON.stringify(staff))}
-//     />
-//   )
-// }
-
-// app/manager/page.tsx
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { redirect } from "next/navigation"
@@ -36,48 +8,84 @@ import User from "@/models/User"
 import ManagerUI from "./ManagerUI"
 
 export default async function ManagerDashboard() {
-  // 1. require session + role (server-side)
+  // 1. Server-side session + role guard
   const session = await getServerSession(authOptions)
 
   if (!session?.user?.id) {
-    // not signed in -> redirect to login
     redirect("/auth/login")
   }
 
   const role = session.user.role
 
-  // only MANAGER and ADMIN allowed
+  // Only MANAGER and ADMIN allowed
   if (role !== "MANAGER" && role !== "ADMIN") {
-    // unauthorized -> redirect to homepage or login
     redirect("/")
   }
 
-  // 2. Connect DB and fetch data (safely)
   await connectDB()
 
-  // fetch shifts, populate location and assignments.user but exclude passwords
-  const shifts = await Shift.find()
+  // 2. If ADMIN -> full access
+  if (role === "ADMIN") {
+    const shifts = await Shift.find()
+      .populate("location")
+      .populate({
+        path: "assignments.user",
+        select: "name email role",
+      })
+      .sort({ start: 1 })
+      .lean()
+
+    const locations = await Location.find().lean()
+    const staff = await User.find({ role: "STAFF" }).select("name email role certifications").lean()
+
+    return (
+      <ManagerUI
+        initialShifts={JSON.parse(JSON.stringify(shifts))}
+        locations={JSON.parse(JSON.stringify(locations))}
+        staff={JSON.parse(JSON.stringify(staff))}
+        managerName={session.user.name || "Admin"}
+        managerRole={role}
+      />
+    )
+  }
+
+  // 3. MANAGER: scope to only locations they manage
+  const managerId = session.user.id
+
+  // find locations where this manager is listed
+  const managedLocations = await Location.find({ managers: managerId }).lean()
+  const managedLocationIds = managedLocations.map((l: any) => l._id)
+
+  // Fetch shifts only for managed locations
+  const shifts = await Shift.find({
+    location: { $in: managedLocationIds },
+  })
     .populate("location")
     .populate({
       path: "assignments.user",
-      select: "name email role", // exclude password
+      select: "name email role",
     })
     .sort({ start: 1 })
     .lean()
 
-  // locations (safe)
-  const locations = await Location.find().lean()
+  // Only the locations this manager manages
+  const locations = managedLocations
 
-  // staff list: only expose safe fields
-  const staff = await User.find({ role: "STAFF" }).select("name email role").lean()
+  // Staff scoped to those certified for any of the manager's locations
+  // (so manager can only assign certified staff by default)
+  const staff = await User.find({
+    role: "STAFF",
+    certifications: { $in: managedLocationIds },
+  })
+    .select("name email role certifications")
+    .lean()
 
-  // serialize for client (strip any ObjectIds left by mongoose)
+  // Serialize safe plain objects for client
   const safeShifts = JSON.parse(JSON.stringify(shifts))
   const safeLocations = JSON.parse(JSON.stringify(locations))
   const safeStaff = JSON.parse(JSON.stringify(staff))
 
-  // manager name (fallback to role label)
-  const managerName = session.user.name || (role === "ADMIN" ? "Admin" : "Manager")
+  const managerName = session.user.name || "Manager"
 
   return (
     <ManagerUI
