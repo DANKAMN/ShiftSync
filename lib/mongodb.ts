@@ -4,13 +4,14 @@ import "@/models/User"
 import "@/models/Location"
 import "@/models/Shift"
 import "@/models/Skill"
+import "@/models/Availability"
 
 const MONGODB_URI = process.env.MONGODB_URI!
 if (!MONGODB_URI) throw new Error("MONGODB_URI not defined")
 
 // Use a more standard global key to avoid conflicts
 declare global {
-  var mongoose: { conn: any; promise: any }
+  var mongoose: { conn: unknown; promise: unknown }
 }
 
 let cached = global.mongoose
