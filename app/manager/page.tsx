@@ -1,7 +1,8 @@
 import { connectDB } from "@/lib/mongodb"
 import Shift from "@/models/Shift"
-import Location from "@/models/Location" 
+import Location from "@/models/Location"
 import User from "@/models/User"
+import ManagerUI from "./ManagerUI"
 
 export default async function ManagerDashboard() {
   await connectDB()
@@ -12,43 +13,14 @@ export default async function ManagerDashboard() {
     .sort({ start: 1 })
     .lean()
 
-    console.log(shifts)
+  const locations = await Location.find().lean()
+  const staff = await User.find({ role: "STAFF" }).lean()
+
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">
-        Manager Calendar
-      </h1>
-
-      <div className="grid grid-cols-7 gap-4">
-        {shifts.map((shift: any) => (
-          <div
-            key={shift._id.toString()}
-            className={`border rounded p-3 ${
-              shift.status === "DRAFT"
-                ? "bg-yellow-500"
-                : "bg-green-500"
-            }`}
-          >
-            <div className="font-semibold">
-              {shift.title || "Untitled Shift"}
-            </div>
-
-            <div className="text-sm">
-              {shift.location?.name || "Unknown Location"}
-            </div>
-
-            <div className="text-xs">
-              {new Date(shift.start).toLocaleString()} -{" "}
-              {new Date(shift.end).toLocaleString()}
-            </div>
-
-            <div className="mt-2 text-xs">
-              {shift.assignments?.length || 0} /{" "}
-              {shift.headcount} Assigned
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+    <ManagerUI
+      initialShifts={JSON.parse(JSON.stringify(shifts))}
+      locations={JSON.parse(JSON.stringify(locations))}
+      staff={JSON.parse(JSON.stringify(staff))}
+    />
   )
 }
