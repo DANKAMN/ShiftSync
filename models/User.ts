@@ -4,7 +4,7 @@ import "./Location"
 
 const UserSchema = new Schema(
   {
-    email: { type: String, unique: true, required: true },
+    email: { type: String, unique: true },
     name: String,
     role: {
       type: String,
@@ -13,11 +13,16 @@ const UserSchema = new Schema(
     },
     skills: [{ type: Schema.Types.ObjectId, ref: "Skill" }],
     certifications: [{ type: Schema.Types.ObjectId, ref: "Location" }],
+
+    weeklyAvailability: [
+      {
+        weekday: { type: Number, required: true },
+        start: String,
+        end: String,
+      },
+    ],
   },
-  { 
-    timestamps: true,
-    collection: "users" // Matches your Compass folder
-  }
+  { timestamps: true }
 )
 
 export default mongoose.models.User || mongoose.model("User", UserSchema)
