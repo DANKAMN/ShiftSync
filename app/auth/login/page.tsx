@@ -10,24 +10,58 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  const handle = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    const res = await signIn("credentials", {
-      redirect: false,
-      email,
-      password,
-    })
+//   const handle = async (e: React.FormEvent) => {
+//     e.preventDefault()
+//     setLoading(true)
+//     const res = await signIn("credentials", {
+//       redirect: false,
+//       email,
+//       password,
+//     })
 
-    setLoading(false)
+//     setLoading(false)
 
-    if (res?.ok) {
-      // get redirect target from URL
-      router.push("/manager") // or redirect to saved "from" param
-    } else {
-      alert("Login failed: " + (res?.error || "Invalid credentials"))
+//     if (res?.ok) {
+//       // get redirect target from URL
+//       router.push("/manager") // or redirect to saved "from" param
+//     } else {
+//       alert("Login failed: " + (res?.error || "Invalid credentials"))
+//     }
+//   }
+
+    const handle = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setLoading(true)
+
+        const res = await signIn("credentials", {
+            redirect: false,
+            email,
+            password,
+        })
+
+        setLoading(false)
+
+        if (!res?.ok) {
+            alert("Login failed: " + (res?.error || "Invalid credentials"))
+            return
+        }
+
+        // fetch session to get role
+        const sessionRes = await fetch("/api/auth/session")
+        const session = await sessionRes.json()
+
+        const role = session?.user?.role
+
+        if (role === "MANAGER") {
+            router.push("/manager")
+        } else if (role === "STAFF") {
+            router.push("/staff")
+        } else if (role === "ADMIN") {
+            router.push("/manager") // admin can access everything
+        } else {
+            router.push("/")
+        }   
     }
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">

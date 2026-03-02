@@ -22,14 +22,14 @@ export default async function StaffPage() {
     "assignments.user": userId,
   })
     .populate("location")
-    .populate("assignments.user")
+    .populate("assignments.user", "name role")
     .sort({ start: 1 })
     .lean()
 
   // All published shifts (for pickup / browse)
   const allPublished = await Shift.find({ status: "PUBLISHED" })
     .populate("location")
-    .populate("assignments.user")
+    .populate("assignments.user", "name role")
     .sort({ start: 1 })
     .lean()
 
@@ -46,7 +46,9 @@ export default async function StaffPage() {
     <StaffUI
       initialMyShifts={JSON.parse(JSON.stringify(myShifts))}
       initialAllShifts={JSON.parse(JSON.stringify(allPublished))}
-      initialWeeklyAvailability={user?.weeklyAvailability || []}
+      initialWeeklyAvailability={
+        JSON.parse(JSON.stringify(user?.weeklyAvailability || []))
+        }
       initialExceptions={JSON.parse(JSON.stringify(exceptions))}
       user={JSON.parse(JSON.stringify({ id: userId, name: session.user.name, email: session.user.email }))}
     />

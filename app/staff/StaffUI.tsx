@@ -190,6 +190,16 @@ export default function StaffUI({
                   <div className="font-medium">{shift.title || "Untitled"}</div>
                   <div className="text-sm text-gray-600">{shift.location?.name}</div>
                   <div className="text-xs mt-1">{new Date(shift.start).toLocaleString()} — {new Date(shift.end).toLocaleString()}</div>
+                  {shift.assignments?.length > 0 && (
+                    <div className="text-xs mt-2 text-gray-700">
+                        <div className="font-medium">Assigned:</div>
+                        <ul className="list-disc list-inside">
+                        {shift.assignments.map((a: any) => (
+                            <li key={a._id}>{a.user?.name}</li>
+                        ))}
+                        </ul>
+                    </div>
+                    )}
                 </div>
                 <div className="text-right">
                   <div className="text-sm">{shift.assignments?.length}/{shift.headcount}</div>
@@ -210,6 +220,16 @@ export default function StaffUI({
                   <div className="font-medium">{shift.title || "Untitled"}</div>
                   <div className="text-sm text-gray-600">{shift.location?.name}</div>
                   <div className="text-xs mt-1">{new Date(shift.start).toLocaleString()} — {new Date(shift.end).toLocaleString()}</div>
+                  {shift.assignments?.length > 0 && (
+                    <div className="text-xs mt-2 text-gray-700">
+                        <div className="font-medium">Assigned:</div>
+                        <ul className="list-disc list-inside">
+                        {shift.assignments.map((a: any) => (
+                            <li key={a._id}>{a.user?.name}</li>
+                        ))}
+                        </ul>
+                    </div>
+                    )}
                 </div>
                 <div className="text-sm text-right">
                   <div>{shift.assignments?.length}/{shift.headcount}</div>
